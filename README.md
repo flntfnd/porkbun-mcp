@@ -1,14 +1,12 @@
 # Porkbun DNS MCP Server
 
-A local [Model Context Protocol](https://modelcontextprotocol.io) server that provides structured access to the [Porkbun](https://porkbun.com) domain registrar API for DNS management.
-
-Runs as a local stdio process — never exposed to the network.
+A local [Model Context Protocol](https://modelcontextprotocol.io) server for managing Porkbun DNS through any MCP-compatible AI client. It runs as a local stdio process and is never exposed to the network.
 
 ## Requirements
 
 - Node.js 18+
 - A Porkbun account with API access enabled
-- Porkbun API key and secret key ([get them here](https://porkbun.com/account/api))
+- Your Porkbun API key and secret key ([grab them here](https://porkbun.com/account/api))
 
 ## Installation
 
@@ -20,38 +18,36 @@ npm install
 
 ## Credential setup
 
-Run the interactive setup script to write your API keys to your shell profile:
+Run the setup script to save your API keys to your shell profile:
 
 ```sh
 npm run setup
 ```
 
-The script will:
-1. Detect your shell profile (`.zshrc`, `.bash_profile`, etc.) — you can override it
-2. Prompt for your API key and secret (input is masked)
-3. Append a clearly-marked block to the profile, or replace it if keys already exist
+It will detect your shell profile (`.zshrc`, `.bash_profile`, etc.), prompt for your keys with masked input, and write them to the file. If keys are already there, it will ask before overwriting.
 
-After setup, reload your profile:
+Once that's done, reload your profile:
 
 ```sh
 source ~/.zshrc   # or ~/.bash_profile, etc.
 ```
 
-To verify the keys are set:
+Verify it worked:
 
 ```sh
 echo $PORKBUN_API_KEY
 ```
 
-> **Manual alternative:** Add these lines to your shell profile yourself:
-> ```sh
-> export PORKBUN_API_KEY="your_api_key"
-> export PORKBUN_SECRET_KEY="your_secret_key"
-> ```
+If you'd rather do it manually, add these two lines to your shell profile:
 
-## Register with your MCP client
+```sh
+export PORKBUN_API_KEY="your_api_key"
+export PORKBUN_SECRET_KEY="your_secret_key"
+```
 
-Add the following to your MCP client config under `mcpServers`:
+## MCP client config
+
+Add this to your MCP client config under `mcpServers`:
 
 ```json
 {
@@ -82,17 +78,17 @@ Replace `/path/to/porkbun-mcp` with the absolute path to this directory.
 
 Supported record types: `A`, `AAAA`, `MX`, `CNAME`, `TXT`, `NS`, `SRV`, `CAA`, `ALIAS`, `TLSA`
 
-Example output from `list_dns_records`:
+Records are returned in a readable format:
 
 ```
-[A]     www.example.com → 203.0.113.10  (TTL 300,  ID 123456)
-[MX]    example.com     → mail.example.com (TTL 3600, ID 123457, priority=10)
-[TXT]   example.com     → v=spf1 include:example.net ~all (TTL 300, ID 123458)
+[A]     www.example.com -> 203.0.113.10  (TTL 300,  ID 123456)
+[MX]    example.com     -> mail.example.com (TTL 3600, ID 123457, priority=10)
+[TXT]   example.com     -> v=spf1 include:example.net ~all (TTL 300, ID 123458)
 ```
 
-## Security notes
+## Security
 
-- API credentials are read exclusively from environment variables — never passed as tool arguments
+- Credentials are read from environment variables only and never passed as tool arguments
 - Domain names and record types are validated before any API call is made
 - Credentials are never included in error messages or tool output
-- The server communicates only over local stdio — no network exposure
+- The server communicates over local stdio only
