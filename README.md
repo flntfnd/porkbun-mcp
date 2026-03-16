@@ -16,55 +16,50 @@ cd porkbun-mcp
 npm install
 ```
 
-## Credential setup
+## Setup
 
-Run the setup script to save your API keys to your shell profile:
+Run the setup script:
 
 ```sh
 npm run setup
 ```
 
-It will detect your shell profile (`.zshrc`, `.bash_profile`, etc.), prompt for your keys with masked input, and write them to the file. If keys are already there, it will ask before overwriting.
+It will:
+1. Prompt for your Porkbun API key and secret key (input is masked)
+2. Write the keys to your shell profile (`.zshrc`, `.bash_profile`, etc.)
+3. Register the MCP server in `~/.claude.json` automatically
 
-Once that's done, reload your profile:
+After it finishes, reload your shell profile:
 
 ```sh
 source ~/.zshrc   # or ~/.bash_profile, etc.
 ```
 
-Verify it worked:
+Then restart your MCP client and run `/mcp` to confirm the server is listed.
 
-```sh
-echo $PORKBUN_API_KEY
-```
+### Manual setup
 
-If you'd rather do it manually, add these two lines to your shell profile:
+If you'd rather configure things by hand, add your keys to your shell profile:
 
 ```sh
 export PORKBUN_API_KEY="your_api_key"
 export PORKBUN_SECRET_KEY="your_secret_key"
 ```
 
-## MCP client config
-
-Add this to your MCP client config under `mcpServers`:
+Then add this block to `~/.claude.json` under `mcpServers`:
 
 ```json
-{
-  "mcpServers": {
-    "porkbun-dns": {
-      "command": "node",
-      "args": ["/path/to/porkbun-mcp/index.js"],
-      "env": {
-        "PORKBUN_API_KEY": "${PORKBUN_API_KEY}",
-        "PORKBUN_SECRET_KEY": "${PORKBUN_SECRET_KEY}"
-      }
-    }
+"porkbun-dns": {
+  "command": "node",
+  "args": ["/absolute/path/to/porkbun-mcp/index.js"],
+  "env": {
+    "PORKBUN_API_KEY": "your_api_key",
+    "PORKBUN_SECRET_KEY": "your_secret_key"
   }
 }
 ```
 
-Replace `/path/to/porkbun-mcp` with the absolute path to this directory.
+Note: the `env` block in `~/.claude.json` requires literal values. Shell variable syntax like `${PORKBUN_API_KEY}` is not expanded there.
 
 ## Available tools
 
