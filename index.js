@@ -3,29 +3,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { loadCredentials } from "./credentials.js";
 
-// --- Credential validation on startup ---
-
-const API_KEY = process.env.PORKBUN_API_KEY;
-const SECRET_KEY = process.env.PORKBUN_SECRET_KEY;
-
-if (!API_KEY || !SECRET_KEY) {
-  const missing = [
-    !API_KEY && "PORKBUN_API_KEY",
-    !SECRET_KEY && "PORKBUN_SECRET_KEY",
-  ]
-    .filter(Boolean)
-    .join(", ");
+const creds = loadCredentials();
+if (!creds) {
   process.stderr.write(
-    `Error: Missing required environment variable(s): ${missing}\n` +
-      `Set them before starting the server.\n`
+    "Error: no Porkbun credentials found.\n" +
+    "Run: npm run setup\n"
   );
   process.exit(1);
 }
 
-// --- Shared auth payload (constructed once, never logged) ---
-
-const AUTH = { apikey: API_KEY, secretapikey: SECRET_KEY };
+const AUTH = { apikey: creds.apiKey, secretapikey: creds.secretKey };
 
 // --- Porkbun API client ---
 
@@ -108,7 +97,6 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
-// list_domains
 server.tool(
   "list_domains",
   "List all domains registered on the Porkbun account, with expiry dates where available.",
@@ -128,7 +116,6 @@ server.tool(
   }
 );
 
-// list_dns_records
 server.tool(
   "list_dns_records",
   "List all DNS records for a domain. Returns record type, name, value, TTL, and record ID.",
@@ -149,7 +136,6 @@ server.tool(
   }
 );
 
-// create_dns_record
 server.tool(
   "create_dns_record",
   "Create a new DNS record for a domain. Returns the new record's ID on success.",
@@ -201,7 +187,6 @@ server.tool(
   }
 );
 
-// edit_dns_record
 server.tool(
   "edit_dns_record",
   "Edit an existing DNS record by its numeric ID. Use list_dns_records to find record IDs.",
@@ -250,7 +235,6 @@ server.tool(
   }
 );
 
-// delete_dns_record
 server.tool(
   "delete_dns_record",
   "Permanently delete a DNS record by its numeric ID. This action cannot be undone. Use list_dns_records to find record IDs before deleting.",

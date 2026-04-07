@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
-import { appendFile, readFile, writeFile } from "fs/promises";
-import { existsSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import { createInterface } from "readline";
-import { homedir } from "os";
+import { homedir, platform } from "os";
 import { join, resolve } from "path";
+import { storeCredentials, loadCredentials } from "./credentials.js";
 
-const MARKER = "# porkbun-mcp credentials";
 const CLAUDE_JSON = join(homedir(), ".claude.json");
-
-// --- Readline helpers ---
 
 const rl = createInterface({
   input: process.stdin,
@@ -43,58 +40,7 @@ function askSecret(question) {
   });
 }
 
-// --- Shell profile detection ---
-
-function detectProfile() {
-  const shell = process.env.SHELL ?? "";
-  const home = homedir();
-  if (shell.endsWith("zsh")) {
-    for (const f of [".zshrc", ".zprofile"]) {
-      const p = join(home, f);
-      if (existsSync(p)) return p;
-    }
-    return join(home, ".zshrc");
-  }
-  if (shell.endsWith("bash")) {
-    for (const f of [".bash_profile", ".bashrc", ".profile"]) {
-      const p = join(home, f);
-      if (existsSync(p)) return p;
-    }
-    return join(home, ".bash_profile");
-  }
-  return join(home, ".profile");
-}
-
-// --- Shell profile helpers ---
-
-function buildBlock(apiKey, secretKey) {
-  return (
-    `${MARKER}\n` +
-    `export PORKBUN_API_KEY="${apiKey}"\n` +
-    `export PORKBUN_SECRET_KEY="${secretKey}"\n` +
-    `# end porkbun-mcp credentials\n`
-  );
-}
-
-async function containsMarker(filePath) {
-  try {
-    const content = await readFile(filePath, "utf8");
-    return content.includes(MARKER);
-  } catch {
-    return false;
-  }
-}
-
-async function replaceKeysInProfile(filePath, apiKey, secretKey) {
-  const content = await readFile(filePath, "utf8");
-  const block = buildBlock(apiKey, secretKey);
-  const markerRe = /# porkbun-mcp credentials\n[\s\S]*?# end porkbun-mcp credentials\n?/;
-  await writeFile(filePath, content.replace(markerRe, block), "utf8");
-}
-
-// --- ~/.claude.json MCP registration ---
-
-async function registerMcpServer(apiKey, secretKey) {
+async function registerMcpServer() {
   const serverPath = resolve(new URL(import.meta.url).pathname, "..", "index.js");
 
   let config = {};
@@ -102,7 +48,7 @@ async function registerMcpServer(apiKey, secretKey) {
     const raw = await readFile(CLAUDE_JSON, "utf8");
     config = JSON.parse(raw);
   } catch {
-    // file doesn't exist or isn't valid JSON — start fresh
+    // start fresh
   }
 
   if (!config.mcpServers) config.mcpServers = {};
@@ -110,10 +56,6 @@ async function registerMcpServer(apiKey, secretKey) {
   config.mcpServers["porkbun-dns"] = {
     command: "node",
     args: [serverPath],
-    env: {
-      PORKBUN_API_KEY: apiKey,
-      PORKBUN_SECRET_KEY: secretKey,
-    },
   };
 
   await writeFile(CLAUDE_JSON, JSON.stringify(config, null, 2) + "\n", "utf8");
@@ -121,70 +63,70 @@ async function registerMcpServer(apiKey, secretKey) {
 
 // --- Main ---
 
-console.log("\nPorkbun MCP setup\n");
-console.log(
-  "This script writes your Porkbun API keys to your shell profile and\n" +
-  "registers the MCP server in ~/.claude.json.\n" +
-  "Keys are never sent anywhere except the Porkbun API.\n"
-);
+const IS_MAC = platform() === "darwin";
 
-const detectedProfile = detectProfile();
-console.log(`Detected shell profile: ${detectedProfile}\n`);
+console.log("\nPorkbun MCP Setup\n");
 
-const overridePath = await ask(
-  "Press Enter to use this file, or type a different path: "
-);
-const targetProfile = overridePath.trim() || detectedProfile;
-
-console.log();
-
-const apiKey = await askSecret("Enter your Porkbun API key:    ");
-if (!apiKey.trim()) {
-  console.error("API key cannot be empty. Aborting.");
-  rl.close();
-  process.exit(1);
+if (IS_MAC) {
+  console.log("Your API keys will be stored in the macOS Keychain.");
+} else {
+  console.log("Your API keys will be stored in ~/.config/porkbun-mcp/credentials.json");
+  console.log("with restricted file permissions (owner-only read/write).");
 }
 
-const secretKey = await askSecret("Enter your Porkbun secret key:  ");
-if (!secretKey.trim()) {
-  console.error("Secret key cannot be empty. Aborting.");
-  rl.close();
-  process.exit(1);
-}
+console.log("Keys are never written to plaintext config files.\n");
 
-console.log();
-
-// Write to shell profile
-const alreadyPresent = await containsMarker(targetProfile);
-if (alreadyPresent) {
-  const answer = await ask(
-    `Keys already exist in ${targetProfile}. Replace them? [y/N] `
-  );
+const existing = loadCredentials();
+if (existing) {
+  const answer = await ask("Existing credentials found. Replace them? [y/N] ");
   if (answer.trim().toLowerCase() !== "y") {
-    console.log("Shell profile not changed.");
+    console.log("Keeping existing credentials.\n");
   } else {
-    await replaceKeysInProfile(targetProfile, apiKey.trim(), secretKey.trim());
-    console.log(`Keys updated in ${targetProfile}`);
+    await promptAndStore();
   }
 } else {
-  await appendFile(targetProfile, "\n" + buildBlock(apiKey.trim(), secretKey.trim()), "utf8");
-  console.log(`Keys appended to ${targetProfile}`);
+  await promptAndStore();
 }
 
-// Register in ~/.claude.json
 try {
-  await registerMcpServer(apiKey.trim(), secretKey.trim());
+  await registerMcpServer();
   console.log(`MCP server registered in ${CLAUDE_JSON}`);
 } catch (err) {
   console.error(`Warning: could not update ${CLAUDE_JSON}: ${err.message}`);
-  console.error("You may need to add the mcpServers entry manually (see README).");
+  console.error("You may need to add the mcpServers entry manually (see README).\n");
 }
 
 rl.close();
 
 console.log(
-  `\nNext steps:\n` +
-  `  1. Reload your shell profile:  source ${targetProfile}\n` +
-  `  2. Restart your MCP client\n` +
-  `  3. Verify the tools appear with /mcp\n`
+  `\nDone. Next steps:\n` +
+  `  1. Restart Claude Code (or your MCP client)\n` +
+  `  2. Run /mcp to confirm porkbun-dns is listed\n`
 );
+
+async function promptAndStore() {
+  const apiKey = await askSecret("Porkbun API key:     ");
+  if (!apiKey.trim()) {
+    console.error("API key cannot be empty.");
+    rl.close();
+    process.exit(1);
+  }
+
+  const secretKey = await askSecret("Porkbun secret key:  ");
+  if (!secretKey.trim()) {
+    console.error("Secret key cannot be empty.");
+    rl.close();
+    process.exit(1);
+  }
+
+  console.log();
+
+  try {
+    const location = storeCredentials(apiKey.trim(), secretKey.trim());
+    console.log(`Keys stored in ${location}`);
+  } catch (err) {
+    console.error(`Failed to store credentials: ${err.message}`);
+    rl.close();
+    process.exit(1);
+  }
+}
