@@ -1,3 +1,15 @@
+![npm Version](https://www.shieldcn.dev/npm/porkbun-mcp.svg?variant=secondary&size=xs&theme=neutral)
+![npm Weekly Downloads](https://www.shieldcn.dev/npm/dw/porkbun-mcp.svg?variant=ghost&size=xs&theme=neutral)
+![npm Monthly Downloads](https://www.shieldcn.dev/npm/dm/porkbun-mcp.svg?variant=ghost&size=xs&theme=neutral)
+![npm Total Downloads](https://www.shieldcn.dev/npm/dt/porkbun-mcp.svg?variant=secondary&size=xs&theme=neutral)
+![npm Dependents](https://www.shieldcn.dev/npm/dependents/porkbun-mcp.svg?variant=secondary&size=xs&theme=neutral)
+![npm Types](https://www.shieldcn.dev/npm/types/porkbun-mcp.svg?theme=blue&variant=ghost&size=xs)
+![npm Node](https://www.shieldcn.dev/npm/node/porkbun-mcp.svg?variant=secondary&size=xs&theme=neutral)
+![npm License](https://www.shieldcn.dev/npm/license/porkbun-mcp.svg?variant=ghost&size=xs&theme=neutral)
+![Package mgr · npm](https://www.shieldcn.dev/badge/Package_mgr-npm-CB3837.svg?logo=npm&variant=branded&size=xs&theme=neutral)
+![ESM only](https://www.shieldcn.dev/badge/ESM-only-16a34a.svg?variant=secondary&size=xs&theme=neutral)
+![CLI tool](https://www.shieldcn.dev/badge/CLI-tool-7c3aed.svg?variant=secondary&size=xs&theme=neutral)
+
 # Porkbun DNS MCP Server
 
 A local [Model Context Protocol](https://modelcontextprotocol.io) server for managing Porkbun DNS through any MCP-compatible AI client. Runs as a local stdio process and is never exposed to the network.
