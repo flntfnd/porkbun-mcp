@@ -77,6 +77,12 @@ function validateId(id) {
   }
 }
 
+function normalizeName(name) {
+  if (name === undefined || name === null) return "";
+  const trimmed = String(name).trim();
+  return trimmed === "@" ? "" : trimmed;
+}
+
 // --- Output formatters ---
 
 function formatDomain(d) {
@@ -155,9 +161,9 @@ server.tool(
     ttl: z
       .number()
       .int()
-      .positive()
+      .min(600)
       .optional()
-      .describe("Time-to-live in seconds. Minimum 600. Defaults to 300 if omitted."),
+      .describe("Time-to-live in seconds. Minimum 600. Defaults to 600 if omitted."),
     prio: z
       .number()
       .int()
@@ -169,15 +175,17 @@ server.tool(
     try {
       validateDomain(domain);
       const normalizedType = validateRecordType(type);
-      const body = { type: normalizedType, name: name ?? "", content };
+      const normalizedName = normalizeName(name);
+      const body = { type: normalizedType, name: normalizedName, content };
       if (ttl !== undefined) body.ttl = String(ttl);
       if (prio !== undefined) body.prio = String(prio);
       const data = await pbPost(`/dns/create/${domain}`, body);
+      const fqdn = normalizedName ? `${normalizedName}.${domain}` : domain;
       return {
         content: [
           {
             type: "text",
-            text: `DNS record created successfully.\nID: ${data.id}\n[${normalizedType}] ${name || "@"}.${domain} → ${content}`,
+            text: `DNS record created successfully.\nID: ${data.id}\n[${normalizedType}] ${fqdn} → ${content}`,
           },
         ],
       };
@@ -198,11 +206,16 @@ server.tool(
       .describe(
         "New DNS record type. One of: A, AAAA, MX, CNAME, TXT, NS, SRV, CAA, ALIAS, TLSA"
       ),
+    name: z
+      .string()
+      .describe(
+        'Subdomain or record name. Use an empty string or "@" for the root domain. For a subdomain use just the prefix, e.g. "www" not "www.example.com"'
+      ),
     content: z.string().describe("New record value"),
     ttl: z
       .number()
       .int()
-      .positive()
+      .min(600)
       .optional()
       .describe("New TTL in seconds. Minimum 600."),
     prio: z
@@ -212,20 +225,22 @@ server.tool(
       .optional()
       .describe("New priority for MX and SRV records."),
   },
-  async ({ domain, id, type, content, ttl, prio }) => {
+  async ({ domain, id, type, name, content, ttl, prio }) => {
     try {
       validateDomain(domain);
       validateId(id);
       const normalizedType = validateRecordType(type);
-      const body = { type: normalizedType, content };
+      const normalizedName = normalizeName(name);
+      const body = { type: normalizedType, name: normalizedName, content };
       if (ttl !== undefined) body.ttl = String(ttl);
       if (prio !== undefined) body.prio = String(prio);
       await pbPost(`/dns/edit/${domain}/${id}`, body);
+      const fqdn = normalizedName ? `${normalizedName}.${domain}` : domain;
       return {
         content: [
           {
             type: "text",
-            text: `DNS record ${id} updated successfully.\n[${normalizedType}] ${domain} → ${content}`,
+            text: `DNS record ${id} updated successfully.\n[${normalizedType}] ${fqdn} → ${content}`,
           },
         ],
       };

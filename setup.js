@@ -3,7 +3,8 @@
 import { readFile, writeFile } from "fs/promises";
 import { createInterface } from "readline";
 import { homedir, platform } from "os";
-import { join, resolve } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { storeCredentials, loadCredentials } from "./credentials.js";
 
 const CLAUDE_JSON = join(homedir(), ".claude.json");
@@ -41,14 +42,25 @@ function askSecret(question) {
 }
 
 async function registerMcpServer() {
-  const serverPath = resolve(new URL(import.meta.url).pathname, "..", "index.js");
+  const serverPath = join(dirname(fileURLToPath(import.meta.url)), "index.js");
 
   let config = {};
+  let raw;
   try {
-    const raw = await readFile(CLAUDE_JSON, "utf8");
-    config = JSON.parse(raw);
-  } catch {
-    // start fresh
+    raw = await readFile(CLAUDE_JSON, "utf8");
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
+  }
+
+  if (raw !== undefined) {
+    try {
+      config = JSON.parse(raw);
+    } catch (err) {
+      throw new Error(
+        `${CLAUDE_JSON} is not valid JSON (${err.message}). ` +
+        `Refusing to overwrite. Please fix or remove the file and re-run setup.`
+      );
+    }
   }
 
   if (!config.mcpServers) config.mcpServers = {};
